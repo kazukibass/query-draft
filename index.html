@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>QueryDraft — 見て組み立てるSQL</title><meta name="description" content="関係図と表を往復しながら、欲しいデータをSQLで取り出す学習ワークスペース。"><link rel="stylesheet" href="./styles.css"></head>
+<body>
+<header class="top"><a class="brand" href="./"><span class="mark">Q<span>↗</span></span>Query<span>Draft</span></a><span class="edition">SQL PLAYGROUND</span><div class="dataset">▦ 注文とユーザー <span>教材DB</span></div><button id="reset">最初の例に戻す</button></header>
+<main class="workspace">
+<section class="visual panel">
+<div class="panel-head"><div><span class="eyebrow">01 / EXPLORE</span><h1>データをたどる</h1></div><div class="segmented" aria-label="すべてのテーブルの表示"><button id="schema-view" aria-pressed="false">関係図</button><button id="data-view" aria-pressed="true">表＋関係図</button></div></div>
+<div class="canvas-tools"><label>開始テーブル <select id="from"></select></label><label>結合 <select id="join"><option value="INNER">INNER JOIN</option><option value="LEFT">LEFT JOIN</option></select></label><button id="arrange">配置を戻す</button></div>
+<p class="hint">列名で表示列を選択。セルの値を押すと条件に追加できます。</p>
+<div class="viewport"><div id="canvas"><svg id="connections" aria-hidden="true"></svg><div id="nodes"></div></div></div>
+<div class="legend"><span><i class="blue"></i>表示する列</span><span><i class="amber"></i>絞り込み条件</span><span>PK 主キー · FK 外部キー</span></div>
+<section class="conditions"><div class="section-title"><h2>絞り込み <code>WHERE</code></h2><button id="add-filter">＋ 条件を追加</button></div><div id="filters"></div><div class="sort"><label>並べ替え <select id="order"></select></label><select id="direction" aria-label="並べ替え方向"><option value="ASC">昇順</option><option value="DESC">降順</option></select><button id="clear">選択と条件をクリア</button></div></section>
+<details class="explanation"><summary>このクエリを読み解く <span>操作とSQLの対応</span></summary><div id="explain"></div></details>
+</section>
+<aside class="right"><section class="panel sql-panel"><div class="panel-head"><div><span class="eyebrow">02 / QUERY</span><h2>生成されたSQL</h2></div><button id="copy">コピー</button></div><p class="sql-caption">選択した列と条件から自動生成</p><pre id="sql" tabindex="0"></pre><div class="runbar"><span id="selection-count"></span><button class="primary" id="run">▶ 実行する</button></div><p id="notice" role="status"></p></section>
+<section class="panel result-panel"><div class="panel-head"><div><span class="eyebrow">03 / RESULT</span><h2>実行結果</h2></div><span id="count" class="badge">—</span></div><p id="result-status" role="status">SQLエンジンを準備しています…</p><div id="result" class="result-scroll"></div></section></aside>
+</main><footer>QueryDraft <span>データとSQLの間を、目でたどる。</span><span>SQLite · ブラウザ内で実行</span></footer>
+<script type="module" src="./src/app.js"></script></body></html>
