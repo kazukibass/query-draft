@@ -3,9 +3,10 @@ import {initialQuery,compile,columns} from './query.js';
 const $=id=>document.getElementById(id);
 const escape=value=>String(value??'NULL').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let q=initialQuery(), compiled, worker, sequence=0, timer, lastExecuted='';
+let activePane='sql';
 const views=Object.fromEntries(tables.map(t=>[t.name,true]));
 let positions;
-function arrange(){positions={users:{x:24,y:38},orders:{x:370,y:142},items:{x:716,y:38}};}
+function arrange(){positions={users:{x:24,y:105},orders:{x:370,y:205},items:{x:716,y:105}};}
 arrange();
 const options=(selected,empty=false)=>`${empty?'<option value="">なし</option>':''}${columns.map(c=>`<option value="${c.id}" ${c.id===selected?'selected':''}>${c.id}</option>`).join('')}`;
 $('from').innerHTML=tables.map(t=>`<option>${t.name}</option>`).join('');
@@ -25,6 +26,7 @@ function drawLines(){
 function drawFilters(){
  $('filters').innerHTML=q.filters.length?q.filters.map((f,i)=>`<div class="filter" data-filter="${i}"><select aria-label="条件の列" data-field="column">${options(f.column)}</select><select aria-label="比較方法" data-field="operator">${['=','!=','>','>=','<','<=','LIKE','IS NULL','IS NOT NULL'].map(op=>`<option ${op===f.operator?'selected':''}>${escape(op)}</option>`).join('')}</select><input aria-label="条件の値" data-field="value" value="${escape(f.value)}" ${f.operator.startsWith('IS ')?'disabled':''}><button data-remove="${i}" aria-label="条件${i+1}を削除">×</button></div>`).join(''):'<p class="empty">条件なし。表のセルからも追加できます。</p>';
  $('order').innerHTML=options(q.order,true);
+ $('filter-count').textContent=q.filters.length;
 }
 function update(redraw=true){
  try{compiled=compile(q);$('sql').innerHTML=escape(compiled.display).replace(/\b(SELECT|FROM|INNER JOIN|LEFT JOIN|WHERE|AND|ON|ORDER BY|ASC|DESC|IS NULL|IS NOT NULL|LIKE)\b/g,'<span class="keyword">$1</span>');$('notice').textContent='';$('run').disabled=false;$('copy').disabled=false;
@@ -34,8 +36,10 @@ function update(redraw=true){
  if(lastExecuted&&compiled?.display!==lastExecuted)$('result-status').textContent='条件が変わりました。「実行する」で結果を更新します。';
  if(redraw)drawNodes();
 }
-function startWorker(){worker=new Worker(new URL('./worker.js',import.meta.url));worker.onmessage=({data})=>{if(data.id!==sequence)return;clearTimeout(timer);$('run').disabled=!compiled;if(data.error){$('result-status').textContent=data.error;$('result').replaceChildren();$('count').textContent='エラー';return;} const result=data.result[0];const rows=result?.values??[];$('count').textContent=`${rows.length}行`;$('result-status').textContent=lastExecuted===compiled?.display?'実行済み · 教材DBの結果':'条件が変わりました。再実行してください。';$('result').innerHTML=result?`<table><thead><tr>${result.columns.map(c=>`<th>${escape(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${row.map(v=>`<td>${escape(v)}</td>`).join('')}</tr>`).join('')}</tbody></table>${!rows.length?'<p class="empty">条件に一致する行はありません。</p>':''}`:'<p class="empty">結果はありません。</p>';};worker.onerror=()=>{clearTimeout(timer);$('run').disabled=!compiled;$('result-status').textContent='SQLエンジンの読み込みに失敗しました。ページを再読み込みしてください。';};}
-function run(){if(!compiled)return;clearTimeout(timer);const id=++sequence;lastExecuted=compiled.display;$('run').disabled=true;$('result-status').textContent='実行中…';worker.postMessage({id,sql:compiled.sql,params:compiled.params});timer=setTimeout(()=>{worker.terminate();startWorker();$('run').disabled=!compiled;$('result-status').textContent='実行を中止しました（10秒）。もう一度実行できます。';},10000);}
+function startWorker(){worker=new Worker(new URL('./worker.js',import.meta.url));worker.onmessage=({data})=>{if(data.id!==sequence)return;clearTimeout(timer);$('run').disabled=!compiled;if(data.error){$('result-status').textContent=data.error;$('result').replaceChildren();$('count').textContent='エラー';$('result-count').textContent='!';return;} const result=data.result[0];const rows=result?.values??[];$('count').textContent=`${rows.length}行`;$('result-count').textContent=rows.length;$('result-status').textContent=lastExecuted===compiled?.display?'実行済み · 教材DBの結果':'条件が変わりました。再実行してください。';$('result').innerHTML=result?`<table><thead><tr>${result.columns.map(c=>`<th>${escape(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${row.map(v=>`<td>${escape(v)}</td>`).join('')}</tr>`).join('')}</tbody></table>${!rows.length?'<p class="empty">条件に一致する行はありません。</p>':''}`:'<p class="empty">結果はありません。</p>';};worker.onerror=()=>{clearTimeout(timer);$('run').disabled=!compiled;$('result-status').textContent='SQLエンジンの読み込みに失敗しました。ページを再読み込みしてください。';};}
+function showPane(name){activePane=name;$('workbench').classList.remove('is-closed');document.querySelectorAll('.pane').forEach(p=>p.hidden=p.dataset.pane!==name);document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.tab===name)));}
+function closePane(){$('workbench').classList.add('is-closed');document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-pressed','false'));}
+function run(openResult=false){if(!compiled)return;clearTimeout(timer);const id=++sequence;lastExecuted=compiled.display;$('run').disabled=true;$('result-status').textContent='実行中…';worker.postMessage({id,sql:compiled.sql,params:compiled.params});if(openResult)showPane('result');timer=setTimeout(()=>{worker.terminate();startWorker();$('run').disabled=!compiled;$('result-status').textContent='実行を中止しました（10秒）。もう一度実行できます。';},10000);}
 $('nodes').addEventListener('click',e=>{const view=e.target.closest('[data-view]');if(view){views[view.dataset.view]=!views[view.dataset.view];drawNodes();return;}const column=e.target.closest('[data-column]');if(column){const id=column.dataset.column;q.columns=q.columns.includes(id)?q.columns.filter(c=>c!==id):[...q.columns,id];update();return;}const cell=e.target.closest('[data-cell]');if(cell){const [name,i,j]=cell.dataset.cell.split(':');const t=tables.find(t=>t.name===name);q.filters.push({column:`${name}.${t.columns[j][0]}`,operator:'=',value:String(t.rows[i][j])});drawFilters();update();}});
 $('filters').addEventListener('change',e=>{const row=e.target.closest('[data-filter]');if(!row)return;q.filters[Number(row.dataset.filter)][e.target.dataset.field]=e.target.value;drawFilters();update();});
 $('filters').addEventListener('click',e=>{const b=e.target.closest('[data-remove]');if(b){q.filters.splice(Number(b.dataset.remove),1);drawFilters();update();}});
@@ -44,10 +48,12 @@ $('add-filter').onclick=()=>{q.filters.push({column:q.columns[0]??'users.id',ope
 $('clear').onclick=()=>{q.columns=[];q.filters=[];q.order='';drawFilters();update();};
 $('reset').onclick=()=>{q=initialQuery();$('from').value=q.from;$('join').value=q.join;$('direction').value=q.direction;drawFilters();update();run();};
 for(const [id,value] of [['schema-view',false],['data-view',true]])$(id).onclick=()=>{for(const name in views)views[name]=value;drawNodes();};
-$('arrange').onclick=()=>{arrange();drawNodes();};$('run').onclick=run;
+$('arrange').onclick=()=>{arrange();drawNodes();};$('run').onclick=()=>run(true);
 $('copy').onclick=async()=>{if(!compiled)return;try{await navigator.clipboard.writeText(compiled.display);$('notice').textContent='SQLをコピーしました。';}catch{$('notice').textContent='コピーできませんでした。SQLを選択してコピーしてください。';}};
 let drag;
 $('nodes').addEventListener('pointerdown',e=>{const head=e.target.closest('[data-drag]');if(!head||e.target.closest('button')||e.button!==0)return;const name=head.dataset.drag;drag={name,x:e.clientX,y:e.clientY,start:{...positions[name]}};head.setPointerCapture(e.pointerId);});
 $('nodes').addEventListener('pointermove',e=>{if(!drag)return;const pos=positions[drag.name];pos.x=Math.max(0,Math.min(740,drag.start.x+e.clientX-drag.x));pos.y=Math.max(0,Math.min(270,drag.start.y+e.clientY-drag.y));const node=$(`node-${drag.name}`);node.style.left=`${pos.x}px`;node.style.top=`${pos.y}px`;drawLines();});
 for(const event of ['pointerup','pointercancel','lostpointercapture'])$('nodes').addEventListener(event,()=>drag=null);
+document.querySelectorAll('[data-tab]').forEach(button=>button.onclick=()=>activePane===button.dataset.tab&&!$('workbench').classList.contains('is-closed')?closePane():showPane(button.dataset.tab));
+document.querySelectorAll('.close-pane').forEach(button=>button.onclick=closePane);
 drawFilters();update();startWorker();run();
