@@ -7,9 +7,9 @@ export const relations = [
   {from:'users',key:'id',to:'orders',foreign:'user_id'},
   {from:'orders',key:'id',to:'items',foreign:'order_id'}
 ];
-export function seed(db) {
-  for(const t of tables) {
-    const relation=relations.find(r=>r.to===t.name);
+export function seed(db,schema=tables,links=relations) {
+  for(const t of schema) {
+    const relation=links.find(r=>r.to===t.name);
     const fk=relation ? `, FOREIGN KEY (${relation.foreign}) REFERENCES ${relation.from}(${relation.key})` : '';
     db.run(`CREATE TABLE ${t.name} (${t.columns.map(([name,type,key])=>`${name} ${type}${key==='PK'?' PRIMARY KEY':''}`).join(',')}${fk});`);
     for(const row of t.rows) db.run(`INSERT INTO ${t.name} VALUES (${row.map(()=>'?').join(',')})`,row);
