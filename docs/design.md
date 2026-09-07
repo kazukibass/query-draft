@@ -30,3 +30,9 @@ SQLを視覚的に組み立て、操作と構文・結果の関係を学ぶ。�
 ## 後続
 
 CSV/Excel取り込み、独自リレーション、目的を保つ複数SQL案、GROUP BY/HAVING、手書きSQL、保存・復元。初版は注文教材1種類に絞り、基礎操作を先に検証する。
+
+### SQLの和訳（未実装）
+
+右端の汎用解説を増やすのではなく、現在生成されているSQLだけを自然文へ変換する案を優先する。例：`SELECT columns FROM table WHERE condition ORDER BY sort_column ASC` は「tableからconditionを満たす行に限定し、sort_columnの昇順で並べ、columnsだけを表として取り出す」と説明する。
+
+`ORDER BY`を省略したSQLの行順は保証されない。「既定で昇順」と説明してよいのは、QueryDraftが`ORDER BY ... ASC`を実際に生成している場合だけとする。構文名の単純な和訳ではなく、テーブル・対象列・条件・並び順へ実値を差し込む。
