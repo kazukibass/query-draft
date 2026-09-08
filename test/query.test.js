@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import initSqlJs from 'sql.js';
 import {seed} from '../src/data.js';
-import {compile,initialQuery} from '../src/query.js';
+import {compile,initialQuery,translateQuery,inspectTables} from '../src/query.js';
 const SQL=await initSqlJs();
 function execute(q){const db=new SQL.Database();try{seed(db);const c=compile(q);return db.exec(c.sql,c.params)[0];}finally{db.close();}}
 function executePrepared(q,schema,links){const db=new SQL.Database();try{seed(db,schema,links);const c=compile(q,schema,links),statement=db.prepare(c.sql);statement.bind(c.params);const rows=[];while(statement.step())rows.push(statement.get());statement.free();return rows;}finally{db.close();}}
@@ -15,3 +15,5 @@ test('NULL uses IS NULL and ordering is included',()=>{const q={...initialQuery(
 test('invalid columns, numbers and empty selection fail explicitly',()=>{assert.throws(()=>compile({...initialQuery(),columns:[]}));assert.throws(()=>compile({...initialQuery(),columns:['users.fake']}));assert.throws(()=>compile({...initialQuery(),filters:[{column:'orders.total',operator:'=',value:'abc'}]}));});
 test('new runtime tables can be compiled and queried',()=>{const schema=[{name:'products',label:'商品',columns:[['id','INTEGER','PK'],['name','TEXT']],rows:[]}];const q={...initialQuery(),from:'products',columns:['products.id','products.name'],filters:[]};assert.match(compile(q,schema,[]).sql,/FROM products/);const db=new SQL.Database();try{seed(db,schema,[]);assert.deepEqual(db.exec(compile(q,schema,[]).sql),[]);}finally{db.close();}});
 test('worker-style prepared execution binds parameters',()=>{const q=initialQuery();assert.deepEqual(executePrepared(q,undefined,undefined),[["青木 葵",3200],["青木 葵",5800],["田中 悠",4200]]);});
+test('translation follows the generated query model',()=>{const q={...initialQuery(),order:'orders.total',direction:'DESC'};assert.equal(translateQuery(q,compile(q)),'usersテーブルを起点に関連するordersを結び、orders.totalが3000以上の行だけに限定して、orders.totalの降順で並べ、users.name、orders.totalを表として取り出します。');});
+test('production inspection finds known FROM and JOIN tables',()=>{assert.deepEqual(inspectTables('SELECT u.name FROM users u JOIN orders o ON u.id = o.user_id'),['users','orders']);assert.deepEqual(inspectTables('SELECT * FROM unknown'),[]);});
