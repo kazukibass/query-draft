@@ -31,3 +31,15 @@ export function compile(q,schema=tables,links=relations) {
   let i=0;const display=sql.replace(/\?/g,()=>{const v=params[i++];return typeof v==='number'?String(v):`'${v.replaceAll("'","''")}'`;});
   return {sql,display,params,joins,connected:[...connected]};
 }
+const operatorText={'=':'と等しい','!=':'と等しくない','>':'より大きい','>=':'以上','<':'より小さい','<=':'以下','LIKE':'に似ている','IS NULL':'が空','IS NOT NULL':'が空ではない'};
+export function translateQuery(q,compiled){
+  const filters=q.filters.map(f=>`${f.column}が${f.operator.startsWith('IS ')?operatorText[f.operator]:`${f.value}${operatorText[f.operator]}`}`).join('、');
+  const joins=compiled.joins.length?`関連する${compiled.joins.map(({node})=>node).join('、')}を結び、`:'';
+  const condition=filters?`${filters}の行だけに限定して、`:'';
+  const order=q.order?`${q.order}の${q.direction==='DESC'?'降順':'昇順'}で並べ`:'並び順は指定せず';
+  return `${q.from}テーブルを起点に${joins}${condition}${order}、${q.columns.join('、')}を表として取り出します。`;
+}
+export function inspectTables(sql,schema=tables){
+  const names=[...sql.matchAll(/\b(?:FROM|JOIN)\s+([A-Za-z_][A-Za-z0-9_]*)/gi)].map(match=>match[1].toLowerCase());
+  return schema.filter(table=>names.includes(table.name.toLowerCase())).map(table=>table.name);
+}
