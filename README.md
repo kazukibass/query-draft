@@ -6,7 +6,7 @@
 
 Node.js 22以降で `npm ci` → `npm run build` → `npm start`。表示されたURLをブラウザで開きます。file://で直接開かず、HTTPサーバーを使用してください。
 
-`dist/` は静的配信可能です。GitHub Pagesならこのディレクトリを配布します。CIが配布用artifactを作成しますが、このPRでは公開設定・自動デプロイを行いません。
+`dist/` は静的配信可能です。`main`更新時はGitHub ActionsがこのディレクトリをGitHub Pagesへ配信します。SQLite本体のJavaScriptとWebAssemblyも`dist/vendor/`へ同梱します。
 
 ## 使い方
 
