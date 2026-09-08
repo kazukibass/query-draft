@@ -1,5 +1,11 @@
-importScripts('../vendor/sql-wasm.js');
-const ready=initSqlJs({locateFile:()=>new URL('../vendor/sql-wasm.wasm',self.location.href).href});
+const engineScript=new URL('../vendor/sql-wasm.js',self.location.href).href;
+const engineBinary=new URL('../vendor/sql-wasm.wasm',self.location.href).href;
+let startupError;
+let ready;
+try{
+  importScripts(engineScript);
+  ready=initSqlJs({locateFile:()=>engineBinary}).catch(error=>{startupError=error;return null;});
+}catch(error){startupError=error;ready=Promise.resolve(null);}
 const identifier=name=>{if(!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name))throw Error(`不正な名前です: ${name}`);return name;};
 function seed(db,tables,relations){
   for(const t of tables){
@@ -9,4 +15,4 @@ function seed(db,tables,relations){
     for(const row of t.rows)db.run(`INSERT INTO ${identifier(t.name)} VALUES (${row.map(()=>'?').join(',')})`,row);
   }
 }
-self.onmessage=async({data})=>{let db;try{const SQL=await ready;db=new SQL.Database();seed(db,data.tables,data.relations);db.run('PRAGMA query_only = ON');const statement=db.prepare(data.sql);statement.bind(data.params);const columns=statement.getColumnNames(),values=[];while(statement.step())values.push(statement.get());statement.free();self.postMessage({id:data.id,result:columns.length?[{columns,values}]:[]});}catch(e){self.postMessage({id:data.id,error:e.message});}finally{db?.close();}};
+self.onmessage=async({data})=>{let db;try{const SQL=await ready;if(startupError||!SQL)throw Error(`SQLiteエンジンを読み込めませんでした: ${startupError?.message??engineBinary}`);db=new SQL.Database();seed(db,data.tables,data.relations);db.run('PRAGMA query_only = ON');const statement=db.prepare(data.sql);statement.bind(data.params);const columns=statement.getColumnNames(),values=[];while(statement.step())values.push(statement.get());statement.free();self.postMessage({id:data.id,result:columns.length?[{columns,values}]:[]});}catch(e){self.postMessage({id:data.id,error:e.message});}finally{db?.close();}};
