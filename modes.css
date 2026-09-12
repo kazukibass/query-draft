@@ -7,3 +7,5 @@ pre,#sql-editor{font-family:ui-monospace,monospace}
 .mode-production .bottom-nav button{min-width:54px;min-height:44px}
 .mode-production .bottom-nav .main-tab{margin:0;min-height:44px;box-shadow:none}
 @media(max-width:760px){.mode-switch{margin-left:auto}.mode-switch+.dataset{display:none}.mode-switch button{font-size:10px;padding:3px 8px}.mode-practice .bottom-nav{left:50%;right:auto;bottom:max(8px,env(safe-area-inset-bottom));width:calc(100% - 16px);height:58px;transform:translateX(-50%);border:1px solid var(--line);border-radius:14px;padding:6px;gap:6px;box-shadow:0 2px 16px #19304420}.mode-practice .bottom-nav button{min-height:44px}.mode-practice .bottom-nav .main-tab{margin:-12px 0 0;min-height:56px}}
+.mode-production .bottom-nav[data-nav-state="collapsed"]{transform:translate(-50%,calc(100% + env(safe-area-inset-bottom)))}
+@media(max-width:760px){.mode-practice .bottom-nav[data-nav-state="collapsed"]{transform:translate(-50%,calc(100% + env(safe-area-inset-bottom) + 8px))}}
