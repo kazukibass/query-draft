@@ -17,3 +17,23 @@ dialog{width:min(620px,calc(100% - 24px));border:1px solid #cbd8e5;border-radius
 .canvas-shell{height:calc(100vh - 66px)}
 @media(max-width:760px){.canvas-shell{height:calc(100vh - 58px)}.workbench{bottom:var(--nav)}}
 @media(prefers-reduced-motion:reduce){.bottom-nav,.bottom-nav button,.nav-collapse-toggle{transition-duration:.01ms!important}}
+
+/* Shared canvas contract with FlowDraft. */
+:root{--canvas-bg:#f5f6f8;--canvas-dot:#d7dbe3}
+.canvas-shell{background:var(--canvas-bg)}
+.canvas-shell::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle,var(--canvas-dot) 1px,transparent 1px);background-size:24px 24px;opacity:.4;pointer-events:none}
+.viewport{overflow:hidden;touch-action:none;cursor:grab}
+.viewport.is-panning{cursor:grabbing}
+#canvas{width:1200px;height:900px;transform-origin:0 0;will-change:transform}
+.zoom-controls{position:absolute;z-index:4;right:24px;bottom:17px;display:flex;gap:4px}
+.zoom-controls button{width:32px;height:32px;min-height:32px;padding:0}
+.zoom-controls span{display:grid;place-items:center;min-width:50px;padding:0 8px;border:1px solid var(--line);border-radius:8px;background:#ffffffdf;font:10px ui-monospace,monospace;color:var(--muted)}
+@media(max-width:760px){
+  .top{height:50px;padding:0 10px;gap:7px}
+  .mark{width:30px;height:30px;margin-right:7px}
+  .brand{font-size:18px}
+  .canvas-shell{height:calc(100vh - 50px)}
+  .zoom-controls{right:12px;bottom:10px}
+  .zoom-controls button{width:36px;height:36px}
+  .zoom-controls span{display:none}
+}

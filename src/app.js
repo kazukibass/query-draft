@@ -14,7 +14,7 @@ const options=(selected,empty=false)=>`${empty?'<option value="">なし</option>
 function drawTableOptions(){$('from').innerHTML=tables.map(t=>`<option ${t.name===q.from?'selected':''}>${t.name}</option>`).join('');}
 drawTableOptions();
 function drawNodes(){
-  $('canvas').style.height=`${Math.max(600,150+Math.ceil(tables.length/3)*250)}px`;
+  $('canvas').style.height=`${Math.max(900,150+Math.ceil(tables.length/3)*250)}px`;
   $('nodes').innerHTML=tables.map(t=>{
     const pos=positions[t.name];
     const rows=views[t.name]?`<div class="preview"><table><thead><tr>${t.columns.map(([c])=>`<th><button data-column="${t.name}.${c}" class="${q.columns.includes(`${t.name}.${c}`)?'selected':''}" aria-pressed="${q.columns.includes(`${t.name}.${c}`)}">${escape(c)}</button></th>`).join('')}</tr></thead><tbody>${t.rows.slice(0,3).map((row,i)=>`<tr>${row.map((value,j)=>`<td><button data-cell="${t.name}:${i}:${j}" title="${escape(t.name+'.'+t.columns[j][0]+' = '+value)} を条件に追加">${escape(value)}</button></td>`).join('')}</tr>`).join('')}</tbody></table></div>`:`<div class="columns">${t.columns.map(([c,type,key])=>`<label class="column ${q.columns.includes(`${t.name}.${c}`)?'selected':''}"><input type="checkbox" data-column="${t.name}.${c}" ${q.columns.includes(`${t.name}.${c}`)?'checked':''}><code>${c}</code><span class="key">${key??''}</span><span class="type">${type}</span></label>`).join('')}</div>`;
@@ -59,8 +59,69 @@ $('arrange').onclick=()=>{arrange();drawNodes();};$('run').onclick=()=>run(true)
 $('copy').onclick=async()=>{const sql=mode==='production'?$('sql-editor').value:compiled?.display;if(!sql)return;try{await navigator.clipboard.writeText(sql);$('notice').textContent='SQLをコピーしました。';}catch{$('notice').textContent='コピーできませんでした。SQLを選択してコピーしてください。';}};
 let drag;
 $('nodes').addEventListener('pointerdown',e=>{const head=e.target.closest('[data-drag]');if(!head||e.target.closest('button')||e.button!==0)return;const name=head.dataset.drag;drag={name,x:e.clientX,y:e.clientY,start:{...positions[name]}};head.setPointerCapture(e.pointerId);});
-$('nodes').addEventListener('pointermove',e=>{if(!drag)return;const pos=positions[drag.name];pos.x=Math.max(0,Math.min(740,drag.start.x+e.clientX-drag.x));pos.y=Math.max(0,Math.min(270,drag.start.y+e.clientY-drag.y));const node=$(`node-${drag.name}`);node.style.left=`${pos.x}px`;node.style.top=`${pos.y}px`;drawLines();});
+$('nodes').addEventListener('pointermove',e=>{if(!drag)return;const pos=positions[drag.name];pos.x=Math.max(0,Math.min(900,drag.start.x+(e.clientX-drag.x)/canvasView.zoom));pos.y=Math.max(0,Math.min(700,drag.start.y+(e.clientY-drag.y)/canvasView.zoom));const node=$(`node-${drag.name}`);node.style.left=`${pos.x}px`;node.style.top=`${pos.y}px`;drawLines();});
 for(const event of ['pointerup','pointercancel','lostpointercapture'])$('nodes').addEventListener(event,()=>drag=null);
+const viewport=document.querySelector('.viewport');
+const canvasView={zoom:1,panX:0,panY:0};
+function renderCanvasView(){
+  $('canvas').style.transform=`translate(${canvasView.panX}px,${canvasView.panY}px) scale(${canvasView.zoom})`;
+  $('zoom-label').textContent=`${Math.round(canvasView.zoom*100)}%`;
+}
+function zoomCanvas(factor,clientX,clientY){
+  const rect=viewport.getBoundingClientRect();
+  const x=(clientX??rect.left+rect.width/2)-rect.left;
+  const y=(clientY??rect.top+rect.height/2)-rect.top;
+  const worldX=(x-canvasView.panX)/canvasView.zoom;
+  const worldY=(y-canvasView.panY)/canvasView.zoom;
+  canvasView.zoom=Math.max(.35,Math.min(2.5,canvasView.zoom*factor));
+  canvasView.panX=x-worldX*canvasView.zoom;
+  canvasView.panY=y-worldY*canvasView.zoom;
+  renderCanvasView();
+}
+let canvasPan,pinch;
+const canvasPointers=new Map();
+viewport.addEventListener('pointerdown',e=>{
+  if(e.target.closest('.node')||e.target.closest('button')||e.button!==0)return;
+  canvasPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  viewport.setPointerCapture(e.pointerId);
+  viewport.classList.add('is-panning');
+  if(canvasPointers.size===1)canvasPan={x:e.clientX-canvasView.panX,y:e.clientY-canvasView.panY,id:e.pointerId};
+  if(canvasPointers.size===2){
+    const [a,b]=[...canvasPointers.values()];
+    const rect=viewport.getBoundingClientRect(),cx=(a.x+b.x)/2-rect.left,cy=(a.y+b.y)/2-rect.top;
+    pinch={distance:Math.hypot(a.x-b.x,a.y-b.y),zoom:canvasView.zoom,worldX:(cx-canvasView.panX)/canvasView.zoom,worldY:(cy-canvasView.panY)/canvasView.zoom};
+    canvasPan=null;
+  }
+});
+viewport.addEventListener('pointermove',e=>{
+  if(!canvasPointers.has(e.pointerId))return;
+  canvasPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(canvasPointers.size===2&&pinch){
+    const [a,b]=[...canvasPointers.values()],rect=viewport.getBoundingClientRect();
+    const cx=(a.x+b.x)/2-rect.left,cy=(a.y+b.y)/2-rect.top;
+    canvasView.zoom=Math.max(.35,Math.min(2.5,pinch.zoom*Math.hypot(a.x-b.x,a.y-b.y)/pinch.distance));
+    canvasView.panX=cx-pinch.worldX*canvasView.zoom;
+    canvasView.panY=cy-pinch.worldY*canvasView.zoom;
+    renderCanvasView();
+    return;
+  }
+  if(!canvasPan||canvasPan.id!==e.pointerId)return;
+  canvasView.panX=e.clientX-canvasPan.x;
+  canvasView.panY=e.clientY-canvasPan.y;
+  renderCanvasView();
+});
+for(const event of ['pointerup','pointercancel','lostpointercapture'])viewport.addEventListener(event,e=>{
+  canvasPointers.delete(e.pointerId);canvasPan=null;pinch=null;
+  if(canvasPointers.size===1){const [id,p]=canvasPointers.entries().next().value;canvasPan={x:p.x-canvasView.panX,y:p.y-canvasView.panY,id};}
+  if(!canvasPointers.size)viewport.classList.remove('is-panning');
+});
+viewport.addEventListener('wheel',e=>{
+  e.preventDefault();
+  if(e.ctrlKey||e.metaKey)zoomCanvas(e.deltaY<0?1.1:.9,e.clientX,e.clientY);
+  else{canvasView.panX-=e.deltaX;canvasView.panY-=e.deltaY;renderCanvasView();}
+},{passive:false});
+$('zoom-out').onclick=()=>zoomCanvas(.85);
+$('zoom-in').onclick=()=>zoomCanvas(1.15);
 document.querySelectorAll('[data-tab]').forEach(button=>button.onclick=()=>activePane===button.dataset.tab&&!$('workbench').classList.contains('is-closed')?closePane():showPane(button.dataset.tab));
 document.querySelectorAll('.close-pane').forEach(button=>button.onclick=closePane);
 const bottomNav=$('bottom-nav'),navCollapseToggle=$('nav-collapse-toggle');
@@ -76,4 +137,4 @@ function openTableDialog(){$('table-form').reset();columnEditor.replaceChildren(
 $('new-table').onclick=openTableDialog;$('add-column').onclick=()=>addColumnRow();
 for(const id of ['cancel-table','cancel-table-bottom'])$(id).onclick=()=>$('table-dialog').close();
 $('table-form').onsubmit=e=>{e.preventDefault();const name=$('table-name').value.trim(),label=$('table-label').value.trim()||name;if(tables.some(t=>t.name===name)){$('table-error').textContent='同じ名前のテーブルがあります。';return;}const rows=[...columnEditor.children];const names=rows.map(row=>row.querySelector('[data-name]').value.trim());if(new Set(names).size!==names.length){$('table-error').textContent='カラム名が重複しています。';return;}const columns=rows.map(row=>[row.querySelector('[data-name]').value.trim(),row.querySelector('[data-type]').value,row.querySelector('input[type=radio]').checked?'PK':undefined]);tables.push({name,label,columns,rows:[]});views[name]=false;positions[name]={x:40+((tables.length-1)%3)*346,y:105+Math.floor((tables.length-1)/3)*250};q={...q,from:name,columns:[`${name}.${columns[0][0]}`],filters:[],order:''};drawTableOptions();drawFilters();update();$('table-dialog').close();showPane('sql');$('notice').textContent=`${name}を追加しました。データはまだ0行です。`;};
-drawFilters();update();startWorker();run();
+drawFilters();update();startWorker();run();closePane();renderCanvasView();
